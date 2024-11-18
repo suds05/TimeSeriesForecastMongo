@@ -1,0 +1,7 @@
+numpy
+pytest
+debugpy
+pymongo[srv]
+python-dotenv
+matplotlib
+pandas

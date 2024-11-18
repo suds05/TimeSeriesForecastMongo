@@ -1,0 +1,22 @@
+{
+    "name": "Python 3.12 Dev Container",
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.12",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter",
+                "ms-vscode.vscode-typescript-next"
+            ]
+        }
+    },
+    "postCreateCommand": "python -m pip install --no-cache-dir -r ./requirements.txt",
+    "forwardPorts": [27017],
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/pymongo,type=bind,consistency=cached"
+    ],
+    "remoteUser": "vscode"
+}
