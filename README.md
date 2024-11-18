@@ -19,6 +19,10 @@ A typical document looks like this
 ```
 
 ## Analysis from Python with MongoDB Driver
+The architecture is along the lines of what's detailed at [MongoDB Aggregation Framework](https://www.practical-mongodb-aggregations.com/intro/introducing-aggregations.html#what-is-mongodbs-aggregation-framework)
+
+![MongoDB Aggregation Pipline via Driver](https://www.practical-mongodb-aggregations.com/intro/pics/aggregation-components.png)
+
 To run the Python code, open the folder pymongo from vscode. It will detect devcontainer settings and ask to open in devcontainer. The container has python and mongo settings installed. Add a .env file with the mongodb connection string and run the code with "python mongoagg.py".
 
 The code does the following:
@@ -35,6 +39,10 @@ The code does the following:
 ![Seasonality component](./pymongo/plot_movies_by_quarter.png)
 
 ## Analysis from PySpark using Spark Connector
+The architecture is along the lines of what's detailed at [spark connector](https://www.mongodb.com/products/integrations/spark-connector)
+
+![spark connector](https://images.contentstack.io/v3/assets/blt7151619cb9560896/blt894b4896121d35a9/64d0ef54b1a0db072fd33df9/Frame-21972b.svg)
+
 To run the Pyspark code, open the folder pyspark from vscode. It will detect devcontainer settings and ask to open in devcontainer. The container has python, spark and mongo dependencies installed. Add a .env file with the mongodb connection string and run the code with ./runPySpark.sh
 
 The code does the following:
@@ -165,9 +173,11 @@ A rough count indicates around *180  operators* for MongoDB Aggregation [Aggrega
 PySpark seems to have around *500 functions* [Pyspark functions](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html)
 
 ### 5. Pushdown to Storage
-* With Python DSL, both filter and aggregation are pushed down to storage
+[Spark Connector documentation](https://www.mongodb.com/products/integrations/spark-connector) indicates: _The MongoDB Connector for Apache Spark can take advantage of MongoDB’s aggregation pipeline and rich secondary indexes to extract, filter, and process only the data it needs_. In this proof of concept, what we're finding is:
+
+* With Python based aggregation pipeline, both filter and aggregation are pushed down to storage
     
-* With Spark, filter is pushed down, but aggregation happens in compute, albeit in a distributed way
+* With PySpark aggregation code, filter is pushed down, but aggregation happens in compute, albeit in a distributed way
 
 ```console
 24/11/18 08:48:01 INFO V2ScanRelationPushDown: 
