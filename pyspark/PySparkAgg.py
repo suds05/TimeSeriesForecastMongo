@@ -1,8 +1,11 @@
 import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, year, quarter
+from dotenv import load_dotenv
+import os
 
-url = "mongodb+srv://sudhakan:hBGIUK19JfOrefBj@cluster0.utnet.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+load_dotenv()  # Load environment variables from .env file
+url = ATLAS_URI = os.environ.get('ATLAS_URI')
 
 # Define a function to aggregate movie count by year
 def aggregate_by_year(df):

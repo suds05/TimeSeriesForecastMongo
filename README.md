@@ -19,13 +19,25 @@ A typical document looks like this
 ```
 
 ## Analysis from Python with MongoDB Driver
+To run the Python code, open the folder pymongo from vscode. It will detect devcontainer settings and ask to open in devcontainer. The container has python and mongo settings installed. Add a .env file with the mongodb connection string and run the code with "python mongoagg.py".
+
+The code does the following:
 1. Aggregate the data yearly using MongoDB aggregation pipeline
-2. Plot the data. It looks as below. As evident, the yearly aggregates show an increasing average
+2. Plot the data. It looks as below. As evident, the yearly aggregates show an increasing average. This is the moving average.
 3. Aggregate the data quarterly using MongoDB aggregation pipeline
-4. Plot the data. The quarterly aggregates show a strong periodicity. Q1 and Q2 is low in terms of moves, while Q3 and Q4 pick up every year
-5. Time series forecasting. TBD
+4. Plot the data. The quarterly aggregates show a strong periodicity. Q1 and Q2 is low in terms of moves, while Q3 and Q4 pick up every year. This is the seasonal/periodic component
+5. Time series forecasting. This needs to account for both the moving average and seasonal components. TBD
+
+### Moving average by year
+![Moving Average](./pymongo/plot_movies_by_year.png)
+
+## Seasonal trend by quarter
+![Seasonality component](./pymongo/plot_movies_by_quarter.png)
 
 ## Analysis from PySpark using Spark Connector
+To run the Pyspark code, open the folder pyspark from vscode. It will detect devcontainer settings and ask to open in devcontainer. The container has python, spark and mongo dependencies installed. Add a .env file with the mongodb connection string and run the code with ./runPySpark.sh
+
+The code does the following:
 1. Here we aggregate the data using PySpark functions
 2. Aggregate them yearly
 3. Aggregate them quarterly.
@@ -33,7 +45,7 @@ A typical document looks like this
     * Pushdown queries. What is pushed down from compute to storage
     * Compute DAG. How is the DAG run in compute.
 
-## Comparisions
+## Some observations
 ### 1. Specification of data logic
 In Python with MongoDB driver, the aggregation data logic is specified in a custom DSL of MongoDB API
 ```python
