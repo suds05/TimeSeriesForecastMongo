@@ -20,9 +20,18 @@ A typical document looks like this
 
 ## Analysis from Python with MongoDB Driver
 1. Aggregate the data yearly using MongoDB aggregation pipeline
-2. Plot the data. It looks as below. As evident, 
+2. Plot the data. It looks as below. As evident, the yearly aggregates show an increasing average
+3. Aggregate the data quarterly using MongoDB aggregation pipeline
+4. Plot the data. The quarterly aggregates show a strong periodicity. Q1 and Q2 is low in terms of moves, while Q3 and Q4 pick up every year
+5. Time series forecasting. TBD
 
 ## Analysis from PySpark using Spark Connector
+1. Here we aggregate the data using PySpark functions
+2. Aggregate them yearly
+3. Aggregate them quarterly.
+4. Pay particular attention to
+    * Pushdown queries. What is pushed down from compute to storage
+    * Compute DAG. How is the DAG run in compute.
 
 ## Comparisions
 ### 1. Specification of data logic
