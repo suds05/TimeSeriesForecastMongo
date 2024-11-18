@@ -49,60 +49,60 @@ The code does the following:
 ### 1. Specification of data logic
 In Python with MongoDB driver, the aggregation data logic is specified in a custom DSL of MongoDB API
 ```python
-      # Define the aggregation pipeline
-        pipeline = [
-            {
-                '$match': {
-                    # Ensure the timestamp field exists and is not None
-                    'released': {'$exists': True, '$ne': None}
-                }
-            },
-            {
-                '$addFields': {
-                    'year': {'$year': f'${timestampField}'},
-                    'month': {'$month': f'${timestampField}'},
-                    'quarter': {
-                        '$toInt': {
-                            '$ceil': {
-                                '$divide': [{'$month': f'${timestampField}'}, 3]
-                            }
-                        }
+# Define the aggregation pipeline
+pipeline = [
+    {
+        '$match': {
+            # Ensure the timestamp field exists and is not None
+            'released': {'$exists': True, '$ne': None}
+        }
+    },
+    {
+        '$addFields': {
+            'year': {'$year': f'${timestampField}'},
+            'month': {'$month': f'${timestampField}'},
+            'quarter': {
+                '$toInt': {
+                    '$ceil': {
+                        '$divide': [{'$month': f'${timestampField}'}, 3]
                     }
                 }
+            }
+        }
+    },
+    {
+        '$match': {
+            # Ensure the year field exists and is not None
+            'year': {'$exists': True, '$ne': None},
+            'year': {'$gte': 2010},
+            'year': {'$lte': 2015}
+        }
+    },
+    {
+        '$group': {
+            '_id': {
+                'year': '$year',
+                'quarter': '$quarter'
             },
-            {
-                '$match': {
-                    # Ensure the year field exists and is not None
-                    'year': {'$exists': True, '$ne': None},
-                    'year': {'$gte': 2010},
-                    'year': {'$lte': 2015}
-                }
-            },
-            {
-                '$group': {
-                    '_id': {
-                        'year': '$year',
-                        'quarter': '$quarter'
-                    },
-                    'movies_in_window': {'$sum': 1}
-                }
-            },
-            {
-                '$sort': {
-                    '_id.year': 1,
-                    '_id.quarter': 1
-                }
-            }]
+            'movies_in_window': {'$sum': 1}
+        }
+    },
+    {
+        '$sort': {
+            '_id.year': 1,
+            '_id.quarter': 1
+        }
+    }]
 ```
 With PySpark, logic is in code
 ```python
-    agg_df = df\
-        .filter(col("released").isNotNull())\
-        .withColumn("year", year(col("released")))\
-        .withColumn("quarter", quarter(col("released")))\
-        .filter((df.year >= 2000) & (df.year <= 2005))\
-        .groupBy("year", "quarter").count()\
-        .sort("year", "quarter", ascending=False)
+agg_df = df\
+    .filter(col("released").isNotNull())\
+    .withColumn("year", year(col("released")))\
+    .withColumn("quarter", quarter(col("released")))\
+    .filter((df.year >= 2000) & (df.year <= 2005))\
+    .groupBy("year", "quarter").count()\
+    .sort("year", "quarter", ascending=False)
 ```
 
 ### 2. Storage dependency
@@ -139,28 +139,56 @@ df = spark.createDataFrame(data, schema)
 ```
 
 ### 4. Richer set of built-in functions
-    * Pyspark comes with a richer set of built-in functions. E.g. quarter function was built-in in Spark, while it had to be written in MongoDB DSL
+Pyspark comes with a bigger set of built-in functions. E.g. in the proptotype, "quarter" function was built-in in Spark, while it had to be written in MongoDB DSL.
+
+```python
+# PySpark code
+.withColumn("quarter", quarter(col("released")))\
+```
+
+```python
+# MongoDB Aggregation pipeline
+{
+    '$addFields': {
+        'quarter': {
+            '$toInt': {
+                '$ceil': {
+                    '$divide': [{'$month': f'${timestampField}'}, 3]
+                }
+            }
+        }
+    }
+},
+```
+A rough count indicates around *180  operators* for MongoDB Aggregation [Aggregation Operators](https://www.mongodb.com/docs/manual/reference/operator/aggregation/)
+
+PySpark seems to have around *500 functions* [Pyspark functions](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html)
 
 ### 5. Pushdown to Storage
-    * With Python DSL, both filter and aggregation are pushed down to storage
+* With Python DSL, both filter and aggregation are pushed down to storage
     
-    * With Spark, filter is pushed down, but aggregation happens in compute, albeit in a distributed way. 
-        24/11/18 08:48:01 INFO V2ScanRelationPushDown: 
-        Pushing operators to MongoTable()
-        Pushed Filters: IsNotNull(year), IsNotNull(released)
-        Post-Scan Filters: (cast(year#21 as int) >= 2000),(cast(year#21 as int) <= 2005)
+* With Spark, filter is pushed down, but aggregation happens in compute, albeit in a distributed way
 
-        == Physical Plan ==
-        AdaptiveSparkPlan isFinalPlan=false
-        +- Sort [year#44 DESC NULLS LAST, quarter#67 DESC NULLS LAST], true, 0
-        +- Exchange rangepartitioning(year#44 DESC NULLS LAST, quarter#67 DESC NULLS LAST, 200), ENSURE_REQUIREMENTS, [plan_id=22]
-            +- HashAggregate(keys=[year#44, quarter#67], functions=[count(1)])
-                +- Exchange hashpartitioning(year#44, quarter#67, 200), ENSURE_REQUIREMENTS, [plan_id=19]
-                    +- HashAggregate(keys=[year#44, quarter#67], functions=[partial_count(1)])
-                    +- Project [year(cast(released#15 as date)) AS year#44, quarter(cast(released#15 as date)) AS quarter#67]
-                        +- Filter ((cast(year#21 as int) >= 2000) AND (cast(year#21 as int) <= 2005))
-                            +- BatchScan MongoTable()[released#15, year#21] MongoScan{namespaceDescription=sample_mflix.movies} RuntimeFilters: []
+```console
+24/11/18 08:48:01 INFO V2ScanRelationPushDown: 
+Pushing operators to MongoTable()
+Pushed Filters: IsNotNull(year), IsNotNull(released)
+Post-Scan Filters: (cast(year#21 as int) >= 2000),(cast(year#21 as int) <= 2005)
+```
 
+```console
+== Physical Plan ==
+AdaptiveSparkPlan isFinalPlan=false
++- Sort [year#44 DESC NULLS LAST, quarter#67 DESC NULLS LAST], true, 0
++- Exchange rangepartitioning(year#44 DESC NULLS LAST, quarter#67 DESC NULLS LAST, 200), ENSURE_REQUIREMENTS, [plan_id=22]
+    +- HashAggregate(keys=[year#44, quarter#67], functions=[count(1)])
+        +- Exchange hashpartitioning(year#44, quarter#67, 200), ENSURE_REQUIREMENTS, [plan_id=19]
+            +- HashAggregate(keys=[year#44, quarter#67], functions=[partial_count(1)])
+            +- Project [year(cast(released#15 as date)) AS year#44, quarter(cast(released#15 as date)) AS quarter#67]
+                +- Filter ((cast(year#21 as int) >= 2000) AND (cast(year#21 as int) <= 2005))
+                    +- BatchScan MongoTable()[released#15, year#21] MongoScan{namespaceDescription=sample_mflix.movies} RuntimeFilters: []
+```
 
-    * Time Series forecasting will happen in compute for both. TBD: to check if this can be distributed
+* Time Series forecasting will happen in compute for both. TBD: to check if this can be distributed
 
+* Note that PySpark allows Mongo aggregation pipeline specification, just like Python MongoDB driver does. But in that case, we can't use PySpark functions - but should use the Python Aggregation DSL. This can be used as a trapdoor - for specific cases where Spark aggregation is too suboptimal
