@@ -235,7 +235,7 @@ AdaptiveSparkPlan isFinalPlan=false
 ### 6. Aggregation and other logic in code
 Another option is to push down just the filters into Mongo, but implement the aggregation in code. This will be a low level implementation manipulating cursors and accumulating results. 
 
-A sample implementation in go looks like this:
+A sample implementation in go is here: [aggregateMoviesByYearInGo](/goMongoAgg/MongoAgg.go). Snippet below:
 ```go
 pipeline := mongo.Pipeline{
     bson.D{{"$match", bson.D{
