@@ -231,3 +231,46 @@ AdaptiveSparkPlan isFinalPlan=false
 * Time Series forecasting will happen in compute for both. TBD: to check if this can be distributed
 
 * Note that PySpark allows Mongo aggregation pipeline specification, just like Python MongoDB driver does. But in that case, we can't use PySpark functions - but should use the Python Aggregation DSL. This can be used as a trapdoor - for specific cases where Spark aggregation is too suboptimal
+
+### 6. Aggregation and other logic in code
+Another option is to push down just the filters into Mongo, but implement the aggregation in code. This will be a low level implementation manipulating cursors and accumulating results. 
+
+A sample implementation in go looks like this:
+```go
+pipeline := mongo.Pipeline{
+    bson.D{{"$match", bson.D{
+        {"released", bson.D{{"$exists", true}, {"$ne", nil}}},
+    }}},
+    bson.D{{"$addFields", bson.D{
+        {"year", bson.D{{"$year", "$released"}}},
+        {"month", bson.D{{"$month", "$released"}}},
+        {"quarter", bson.D{{"$toInt", bson.D{{"$ceil", bson.D{{"$divide", bson.A{bson.D{{"$month", "$released"}}, 3}}}}}}}},
+    }}},
+    bson.D{{"$match", bson.D{
+        {"year", bson.D{{"$exists", true}, {"$ne", nil}}},
+        {"year", bson.D{{"$gte", 2010}}},
+        {"year", bson.D{{"$lte", 2015}}},
+    }}},
+}
+
+cursor, err := m.collection.Aggregate(context.TODO(), pipeline)
+if err != nil {
+    return err
+}
+defer cursor.Close(context.Background())
+
+// Iterate over the cursor and accumulate results into map.
+aggResults := make(map[string]int)
+
+for cursor.Next(context.Background()) {
+    var result bson.M
+    if err := cursor.Decode(&result); err != nil {
+        return err
+    }
+
+    year := result["year"].(int32)
+    quarter := result["quarter"].(int32)
+    key := fmt.Sprintf("%d-Q%d", year, quarter)
+    aggResults[key]++
+}
+```
