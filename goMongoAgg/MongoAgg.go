@@ -122,6 +122,54 @@ func (m *MongoAgg) aggregateMoviesByYear() error {
 	}
 }
 
+// Function to aggregate movies by year
+// In this version, we use Mongo's aggregation pipeline to filter movies by year and quarter
+// But do the aggregation in Go code
+func (m *MongoAgg) aggregateMoviesByYearInGo() error {
+	pipeline := mongo.Pipeline{
+		bson.D{{"$match", bson.D{
+			{"released", bson.D{{"$exists", true}, {"$ne", nil}}},
+		}}},
+		bson.D{{"$addFields", bson.D{
+			{"year", bson.D{{"$year", "$released"}}},
+			{"month", bson.D{{"$month", "$released"}}},
+			{"quarter", bson.D{{"$toInt", bson.D{{"$ceil", bson.D{{"$divide", bson.A{bson.D{{"$month", "$released"}}, 3}}}}}}}},
+		}}},
+		bson.D{{"$match", bson.D{
+			{"year", bson.D{{"$exists", true}, {"$ne", nil}}},
+			{"year", bson.D{{"$gte", 2010}}},
+			{"year", bson.D{{"$lte", 2015}}},
+		}}},
+	}
+
+	cursor, err := m.collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(context.Background())
+
+	// Iterate over the cursor and accumulate results into map.
+	aggResults := make(map[string]int)
+
+	for cursor.Next(context.Background()) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			return err
+		}
+
+		year := result["year"].(int32)
+		quarter := result["quarter"].(int32)
+		key := fmt.Sprintf("%d-Q%d", year, quarter)
+		aggResults[key]++
+	}
+
+	// Print the results
+	for key, value := range aggResults {
+		fmt.Printf("%s: %d\n", key, value)
+	}
+	return nil
+}
+
 func main() {
 	m, err := NewMongoAgg("sample_mflix", "movies")
 	if err != nil {
@@ -132,7 +180,8 @@ func main() {
 
 	// title := "Back to the Future"
 	// err = m.findAnagdPrintSample(title)
-	err = m.aggregateMoviesByYear()
+	// err = m.aggregateMoviesByYear()
+	err = m.aggregateMoviesByYearInGo()
 	if err != nil {
 		fmt.Println("Error: ", err)
 	}
