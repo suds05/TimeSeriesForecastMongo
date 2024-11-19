@@ -19,7 +19,7 @@ A typical document looks like this
 ```
 
 ## Analysis from Python with MongoDB Driver
-The architecture is along the lines of what's detailed at [MongoDB Aggregation Framework](https://www.practical-mongodb-aggregations.com/intro/introducing-aggregations.html#what-is-mongodbs-aggregation-framework)
+The architecture is along the lines of what's detailed at [MongoDB Aggregation Framework](https://www.practical-mongodb-aggregations.com/intro/introducing-aggregations.html#what-is-mongodbs-aggregation-framework). The App here is a simple Python process.
 
 ![MongoDB Aggregation Pipline via Driver](https://www.practical-mongodb-aggregations.com/intro/pics/aggregation-components.png)
 
@@ -41,7 +41,7 @@ The code does the following:
 ## Analysis from PySpark using Spark Connector
 The architecture is along the lines of what's detailed at [spark connector](https://www.mongodb.com/products/integrations/spark-connector)
 
-![spark connector](https://images.contentstack.io/v3/assets/blt7151619cb9560896/blt894b4896121d35a9/64d0ef54b1a0db072fd33df9/Frame-21972b.svg)
+Here, **we are using Spark more as a App Framework - a set of libraries for the App to use, and container images where the Spark workers run**, than a Platform.
 
 To run the Pyspark code, open the folder pyspark from vscode. It will detect devcontainer settings and ask to open in devcontainer. The container has python, spark and mongo dependencies installed. Add a .env file with the mongodb connection string and run the code with ./runPySpark.sh
 
@@ -170,7 +170,7 @@ Pyspark comes with a bigger set of built-in functions. E.g. in the proptotype, "
 ```
 A rough count indicates around *180  operators* for MongoDB Aggregation [Aggregation Operators](https://www.mongodb.com/docs/manual/reference/operator/aggregation/)
 
-PySpark seems to have around *500 functions* [Pyspark functions](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html)
+PySpark seems to have around *500+ functions* with a quick counting [Pyspark functions](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html)
 
 ### 5. Pushdown to Storage
 [Spark Connector documentation](https://www.mongodb.com/products/integrations/spark-connector) indicates: _The MongoDB Connector for Apache Spark can take advantage of MongoDB’s aggregation pipeline and rich secondary indexes to extract, filter, and process only the data it needs_. In this proof of concept, what we're finding is:
