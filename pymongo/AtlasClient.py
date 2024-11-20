@@ -66,7 +66,7 @@ class AtlasClient ():
 
         return results_list
 
-    def agg_movies_by_quarter(self, collection_name):
+    def agg_movies_by_quarter(self, collection_name, start_year, end_year):
         timestampField = 'released'
 
         # Define the aggregation pipeline
@@ -94,8 +94,8 @@ class AtlasClient ():
                 '$match': {
                     # Ensure the year field exists and is not None
                     'year': {'$exists': True, '$ne': None},
-                    'year': {'$gte': 2010},
-                    'year': {'$lte': 2015}
+                    'year': {'$gte': start_year},
+                    'year': {'$lte': end_year}
                 }
             },
             {
@@ -148,7 +148,7 @@ class AtlasClient ():
                 }
             }
         ]
-
+       
         collection = self.database[collection_name]
         results = collection.aggregate(pipeline)
         results_list = list(results)
@@ -158,3 +158,4 @@ class AtlasClient ():
             result['_id'] = f"{result['_id']['year']}"
 
         return results_list
+

@@ -115,7 +115,7 @@ aggs1 = atlas_client.agg_movies_by_year(COLLECTION_NAME)
 plot_movies_by_year(aggs1)
 
 # Aggregate movies by quarter
-aggs2 = atlas_client.agg_movies_by_quarter(COLLECTION_NAME)
+aggs2 = atlas_client.agg_movies_by_quarter(COLLECTION_NAME, 2004, 2014)
 
 # Plot the aggregation results for movies by quarter
 plot_movies_by_quarter(aggs2)
