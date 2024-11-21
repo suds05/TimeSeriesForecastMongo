@@ -3,10 +3,12 @@ The aim of this experiments is to test forecasting of time series data stored in
 1. Simple Python process with primarily relying on [MongoDB aggregation pipelines](https://www.mongodb.com/docs/manual/core/aggregation-pipeline/)
 2. PySpark process using [MongoDB Spark Connector](https://www.mongodb.com/docs/spark-connector/v10.2/)
 
-For the Forecasting, we will try to use techniques detailed in these papers: 
+For the Forecasting, we will try to use statistical techniques detailed in this paper: 
 1. [Time series forecasting used for real-time
  anomaly detection on websites](https://www.semanticscholar.org/paper/Time-series-forecasting-used-for-real-time-anomaly-Galvas/43aa251f185ac6c85b988f2c0b96572eb0b26bca)
 2. [An Introductory Study on Time Series Modeling and Forecasting](https://arxiv.org/abs/1302.6613)
+
+I have found this website giving a good outline for the implemenation: [https://www.bounteous.com/](https://www.bounteous.com/insights/2020/09/15/forecasting-time-series-model-using-python-part-two/)
 
 ## Data used
 MongoDB atlas comes preloaded with a [sample_mflix](https://www.mongodb.com/docs/atlas/sample-data/sample-mflix/#std-label-mflix-movies) database containing data on movies and movie theaters. The movies collection contains details on movies. Each document contains a single movie, and information such as its title, release year, and cast.
@@ -30,13 +32,16 @@ The code does the following:
 2. Plot the data. It looks as below. As evident, the yearly aggregates show an increasing average. This is the moving average.
 3. Aggregate the data quarterly using MongoDB aggregation pipeline
 4. Plot the data. The quarterly aggregates show a strong periodicity. Q1 and Q2 is low in terms of moves, while Q3 and Q4 pick up every year. This is the seasonal/periodic component
-5. Time series forecasting. This needs to account for both the moving average and seasonal components. TBD
+5. Time series forecasting. This needs to account for both the moving average and seasonal components. As a first step, we try to seperate the a-periodic Trend, periodic seasonal component and look at the residue. For this, we use pandas and statsmodels packages in Python. As seen in the analysis below, the trend is increasing, there is a yearly seasonality. But the residue still shows some pattern (i.e it is not white noise). That indicates there are more seasonal components to extract.
 
-### Moving average by year
-![Moving Average](./pymongo/plot_movies_by_year.png)
+### Over years
+![Over years](./pymongo/plot_movies_by_year.png)
 
-## Seasonal trend by quarter
-![Seasonality component](./pymongo/plot_movies_by_quarter.png)
+### Over quarters
+![Over quarters](./pymongo/plot_movies_by_quarter.png)
+
+### Trend and seasonality seperation
+![Trend and seasonality](./pymongo/plot_seasonality_trends.png)
 
 ## Analysis from PySpark using Spark Connector
 The architecture is along the lines of what's detailed at [spark connector](https://www.mongodb.com/products/integrations/spark-connector)
@@ -55,7 +60,7 @@ The code does the following:
 
 ## Some observations
 ### 1. Specification of data logic
-In Python with MongoDB driver, the aggregation data logic is specified in a custom DSL of MongoDB API
+In Python with MongoDB driver, the aggregation data logic is specified in a custom json-like Domain Specific Language (DSL) of MongoDB API. Note that this is still imperative logic (code) - not declarative.
 ```python
 # Define the aggregation pipeline
 pipeline = [
@@ -131,7 +136,9 @@ pipeline := mongo.Pipeline{
 		}}},
 	}
 ```
-With PySpark, logic is in code
+Another option is to push down just the filters into Mongo, and implement the aggregation in code. This will be a low level implementation manipulating cursors and accumulating results. A sample implementation in go is here: [Filter in mongo and aggregate in go](/goMongoAgg/mongoagg.go)
+
+With PySpark, logic is written using pyspark functions
 ```python
 agg_df = df\
     .filter(col("released").isNotNull())\
@@ -201,8 +208,11 @@ A rough count indicates around *180  operators* for MongoDB Aggregation [Aggrega
 
 PySpark seems to have around *500+ functions* with a quick counting [Pyspark functions](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html)
 
-### 5. Pushdown to Storage
-[Spark Connector documentation](https://www.mongodb.com/products/integrations/spark-connector) indicates: _The MongoDB Connector for Apache Spark can take advantage of MongoDB’s aggregation pipeline and rich secondary indexes to extract, filter, and process only the data it needs_. In this proof of concept, what we're finding is:
+### 5. Spark Predicate Pushdown to Storage
+[Spark Connector documentation](https://www.mongodb.com/products/integrations/spark-connector) indicates the following: 
+> The MongoDB Connector for Apache Spark can take advantage of MongoDB’s aggregation pipeline and rich secondary indexes to extract, filter, and process only the data it needs. 
+
+In this proof of concept, what we're finding is:
 
 * With Python based aggregation pipeline, both filter and aggregation are pushed down to storage
     
@@ -232,53 +242,15 @@ AdaptiveSparkPlan isFinalPlan=false
 
 * Note that PySpark allows Mongo aggregation pipeline specification, just like Python MongoDB driver does. But in that case, we can't use PySpark functions - but should use the Python Aggregation DSL. This can be used as a trapdoor - for specific cases where Spark aggregation is too suboptimal
 
-### 6. Aggregation and other logic in code
-Another option is to push down just the filters into Mongo, but implement the aggregation in code. This will be a low level implementation manipulating cursors and accumulating results. 
+### 6. Time series analysis for forecasting
+Statistical analysis packages that do time series analysis rely heavily on Pandas, and are written in Python. 
+* pandas also supports pipelining to express selection, projections, aggregations, joins, etc. 
+* So aftering pushing down filtering to storage, all aggregations and forecasing could be built in pandas and python. 
+* Though its python, pandas is implemented in native code and there is lot of focus on its performance - see this hackernews article (FireDucks : Pandas but 100x faster)[https://news.ycombinator.com/item?id=42135303]: 
+    > Pandas is written in C and Cython, which means the main engine is King C...there got to be a way to optimize Pandas and leverage the C engine!
+* python + pandas seems a solid combination for aggregations + anomaly/forecasting.
 
-A sample implementation in go is here: [aggregateMoviesByYearInGo](/goMongoAgg/MongoAgg.go). Snippet:
-```go
-pipeline := mongo.Pipeline{
-    bson.D{{"$match", bson.D{
-        {"released", bson.D{
-            {"$exists", true}, 
-            {"$ne", nil}}},
-    }}},
-    bson.D{{"$addFields", bson.D{
-        {"year", bson.D{{"$year", "$released"}}},
-        {"month", bson.D{{"$month", "$released"}}},
-        {"quarter", bson.D{{
-            "$toInt", bson.D{{
-                "$ceil", bson.D{{
-                    "$divide", bson.A{
-                        bson.D{{"$month", "$released"}}, 3}}}}}}}},
-    }}},
-    bson.D{{"$match", bson.D{
-        {"year", bson.D{
-            {"$exists", true}, 
-            {"$ne", nil}}},
-        {"year", bson.D{{"$gte", 2010}}},
-        {"year", bson.D{{"$lte", 2015}}},
-    }}},
-}
+There is a pandas for PySpark, which runs distributed on a spark cluster. 
+* These may be more scalable owing to the distirbution. [Pandas API on Spark](https://www.databricks.com/blog/2021/10/04/pandas-api-on-upcoming-apache-spark-3-2.html). 
+    > One of the known limitations in pandas is that it does not scale with your data volume linearly due to single-machine processing. For example, pandas fails with out-of-memory if it attempts to read a dataset that is larger than the memory available in a single machine. pandas API on Spark overcomes the limitation, enabling users to work with large datasets by leveraging Spark
 
-cursor, err := m.collection.Aggregate(context.TODO(), pipeline)
-if err != nil {
-    return err
-}
-defer cursor.Close(context.Background())
-
-// Iterate over the cursor and accumulate results into map.
-aggResults := make(map[string]int)
-
-for cursor.Next(context.Background()) {
-    var result bson.M
-    if err := cursor.Decode(&result); err != nil {
-        return err
-    }
-
-    year := result["year"].(int32)
-    quarter := result["quarter"].(int32)
-    key := fmt.Sprintf("%d-Q%d", year, quarter)
-    aggResults[key]++
-}
-```

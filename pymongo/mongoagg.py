@@ -1,5 +1,6 @@
 import debugpy
 import os
+import statsmodels.api as sm
 import pandas as pd
 import matplotlib.pyplot as plt
 from AtlasClient import AtlasClient
@@ -88,6 +89,39 @@ def plot_movies_by_director(aggs):
 
     print('Done!')
 
+# graphs to show seasonal_decompose
+def seasonal_decompose(aggs):
+    # Convert the aggregation results to a DataFrame
+    df = pd.DataFrame(aggs)
+
+    # Filter to years 2004 to 2019
+    df = df[(df['_id'].apply(lambda x: x['year']) >= 2004) & (df['_id'].apply(lambda x: x['year']) <= 2008)]
+
+    # Combine the year and quarter fields inside _id as a string in the format 'YYYYQX'. 
+    # This format aids in building a datetime index with pandas
+    df['year_quarter'] = df['_id'].apply(lambda x: f"{x['year']}-Q{x['quarter']}")
+    df.drop(columns=['_id'], inplace=True)
+
+    # Drop any rows with missing year_quarter values
+    df = df.dropna(subset=['year_quarter'])
+
+    # Drop any rows with missing movies_in_window values
+    df = df.dropna(subset=['movies_in_window'])
+
+    # Convert year_quarter to a datetime column set to the first day of the quarter
+    df['year_quarter'] = pd.PeriodIndex(df['year_quarter'], freq='Q').to_timestamp()
+
+    # Set the year_quarter column as the DataFrame index
+    df.set_index('year_quarter', inplace=True)
+
+    # Perform seasonal decomposition    
+    decomposition = sm.tsa.seasonal_decompose(df['movies_in_window'], model='additive', extrapolate_trend='freq')
+    fig = decomposition.plot()
+    fig.set_size_inches(30,14)
+    plt.savefig('plot_seasonality_trends.png')
+    print('Plot saved as plot_seasonality_trends.png')
+
+    print('Done!')
 
 # debugger_attach()
 
@@ -104,7 +138,7 @@ atlas_client = AtlasClient(ATLAS_URI, DB_NAME)
 atlas_client.ping()
 print('Connected to Atlas instance! We are good to go!')
 
-# Aggregate movies by director and print them
+# # Aggregate movies by director and print them
 # aggs = atlas_client.agg_movies(COLLECTION_NAME, 'directors')
 # plot_movies_by_director(aggs)
 
@@ -119,3 +153,7 @@ aggs2 = atlas_client.agg_movies_by_quarter(COLLECTION_NAME, 2004, 2014)
 
 # Plot the aggregation results for movies by quarter
 plot_movies_by_quarter(aggs2)
+
+# Plot the seasonal decomposition
+aggs3 = atlas_client.agg_movies_by_quarter(COLLECTION_NAME, 2004, 2014)
+seasonal_decompose(aggs3)

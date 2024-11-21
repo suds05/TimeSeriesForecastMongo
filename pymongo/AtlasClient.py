@@ -158,4 +158,3 @@ class AtlasClient ():
             result['_id'] = f"{result['_id']['year']}"
 
         return results_list
-
